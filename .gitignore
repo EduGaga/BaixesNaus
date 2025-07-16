@@ -1,1 +1,16 @@
 secrets/
+*.key
+*.pem
+.env
+
+# Archivos de sistema o editor
+*.log
+*.swp
+.DS_Store
+__pycache__/
+node_modules/
+
+# Archivos de Python (si aplica)
+*.pyc
+*.pyo
+*.pyd
