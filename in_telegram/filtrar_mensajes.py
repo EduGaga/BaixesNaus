@@ -3,9 +3,8 @@
 import logging
 import re
 import asyncio
-from in_telegram.g_sheets.sheets import g_sheets
 from in_telegram.comandos.baixes_diaries import mostrar_baixes_diaries
-from in_telegram.comandos.baixes_totals import mostrar_baixes_totals
+#from in_telegram.comandos.baixes_totals import mostrar_baixes_totals
 from in_telegram.utils.message_sender import send_message_sync_wrapper 
 from in_telegram.validadores.filtrar_nave import filtrar_nave
 
@@ -34,7 +33,8 @@ def filtrar(telegram_message_update: dict, context, main_loop: asyncio.AbstractE
             if message_content == "/mostrar_baixes_avui":
                 mostrar_baixes_diaries(chat_id, context, main_loop)
             elif message_content == "/mostrar_baixes_totals":
-                mostrar_baixes_totals(chat_id, context, main_loop)
+                logger.info(f"Comando /mostrar_baixes_totals recibido del chat {chat_id}")
+               # mostrar_baixes_totals(chat_id, context, main_loop)
             else:
                 if not patron.fullmatch(message_content):
                     logger.info(f"Usuario {user_id}: Mensaje '{message_content}' NO cumple con el filtro de caracteres.")

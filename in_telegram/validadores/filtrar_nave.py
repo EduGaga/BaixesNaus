@@ -5,7 +5,7 @@ import re
 import asyncio
 import time
 from telegram.ext import ContextTypes
-from in_telegram.g_sheets.sheets import g_sheets 
+from in_telegram.g_sheets.baixes_g_sheets import g_sheets 
 from in_telegram.utils.message_sender import send_message_sync_wrapper 
 from in_telegram.validadores.llista_naus_valides import llista_naus_valides
 

@@ -52,7 +52,8 @@ def process_message_in_thread(update: Update, context: ContextTypes.DEFAULT_TYPE
                     send_message_sync_wrapper(
                         chat_id=chat_id,
                         context=context,
-                        message_text="Només s'admeten missatges de text."
+                        message_text="Només s'admeten missatges de text.",
+                        main_loop=current_loop
                     ),
                     current_loop
                 )
