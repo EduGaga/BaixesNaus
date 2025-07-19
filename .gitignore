@@ -7,10 +7,8 @@ secrets/
 *.log
 *.swp
 .DS_Store
-__pycache__/
 node_modules/
-in_telegram/__pycache__
-g_sheets/__pycache__/
+**/__pycache__/
 # Archivos de Python (si aplica)
 *.pyc
 *.pyo

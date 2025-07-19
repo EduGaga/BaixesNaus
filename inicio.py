@@ -1,14 +1,13 @@
 import logging
 from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram.ext import Application, MessageHandler, filters, ContextTypes
 from in_telegram.verificar_uuid import es_usuario_autorizado
 from in_telegram.validar_tipo_mensaje import es_mensaje_de_texto
 from in_telegram.filtrar_mensajes import filtrar
+from in_telegram.utils.message_sender import send_message_sync_wrapper 
 import threading
-import json
 import os
 import asyncio
-
 
 logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -20,13 +19,12 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 # Configuración
 TELEGRAM_TOKEN_FILE = 'secrets/telegram'
 
-main_event_loop = None 
-
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:   
-    """Maneja cada mensaje iniciando un nuevo hilo para todo el procesamiento"""
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:  
+    main_loop_for_thread = asyncio.get_running_loop() 
+    
     thread = threading.Thread(
         target=process_message_in_thread,
-        args=(update, context, main_event_loop),
+        args=(update, context, main_loop_for_thread),
         daemon=True
     )
     thread.start()
@@ -35,14 +33,10 @@ def process_message_in_thread(update: Update, context: ContextTypes.DEFAULT_TYPE
     """Función que se ejecuta en el hilo secundario para procesar todo el mensaje"""
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
-    try:
-
-        update_dict = update.to_dict()
-        # Convertir el objeto Update a un diccionario
-        #print(json.dumps(update_dict, indent=2))
-
-        logger.info(f"Procesando mensaje del usuario {user_id} en hilo secundario")
         
+    try:
+        update_dict = update.to_dict()
+        logger.info(f"Procesando mensaje del usuario {user_id} en hilo secundario")
         
         is_authorized = es_usuario_autorizado(update_dict)
         
@@ -50,33 +44,25 @@ def process_message_in_thread(update: Update, context: ContextTypes.DEFAULT_TYPE
             logger.error(f"Valor inesperado de es_usuario_autorizado: {is_authorized}")
             return
              
-        if is_authorized: #verifica si el usuario esta en la lista de autorizados
+        if is_authorized:
             logger.info(f"Usuario {user_id} autorizado.")
-            if not es_mensaje_de_texto(update_dict): #verifica siel mensaje es de texto
+            if not es_mensaje_de_texto(update_dict):
                 logger.info(f"Mensaje del usuario {user_id}. No es un mensaje de texto.")
-
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                try:
-                    loop.run_until_complete(context.bot.send_message(
+                asyncio.run_coroutine_threadsafe(
+                    send_message_sync_wrapper(
                         chat_id=chat_id,
-                        text="Només s'admeten missatges de text."
-                    ))
-                    logger.info(f"Respuesta enviada a {user_id}: 'Només s'admeten missatges de text.'")
-                except Exception as e:
-                    logger.error(f"Error al enviar respuesta de no-texto a {user_id}: {e}")
-                finally:
-                    loop.close()
-
+                        context=context,
+                        message_text="Només s'admeten missatges de text."
+                    ),
+                    current_loop
+                )
                 return
             else:
-                filtrar(update_dict, context,current_loop)
+                filtrar(update_dict, context, current_loop)
                 return            
         else:
             logger.info(f"Usuario {user_id} no autorizado")
             return            
-    
-
     
     except Exception as e:
         logger.error(f"Error en hilo secundario: {e}")
@@ -103,20 +89,13 @@ def get_telegram_token(file_path):
         raise
 
 def main() -> None:
-    global main_event_loop
     try:
         telegram_token = get_telegram_token(TELEGRAM_TOKEN_FILE)
 
-        # Crea la Application y pásale el token de tu bot.
         application = Application.builder().token(telegram_token).build()
 
-        # Almacena el bucle de eventos del hilo principal ANTES de iniciar el polling
-        main_event_loop = asyncio.get_event_loop() 
+        application.add_handler(MessageHandler(filters.ALL, handle_message))
 
-        # Añade handlers para diferentes tipos de eventos
-        application.add_handler(MessageHandler(filters.ALL, handle_message))  # Captura todo tipo de mensaje
-
-        # Arranca el bot
         logger.warning("El bot se ha iniciado correctamente y está a la espera de recibir mensajes...")
         application.run_polling()
         

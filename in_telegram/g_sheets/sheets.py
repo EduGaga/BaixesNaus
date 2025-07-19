@@ -8,6 +8,8 @@ import os
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+from in_telegram.utils.message_sender import send_message_sync_wrapper
+from in_telegram.validadores.llista_naus_valides import llista_naus_valides 
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -21,16 +23,6 @@ SECRETS_DIR = os.path.abspath(os.path.join(BASE_DIR, '../../secrets'))
 SPREADSHEET_ID = os.path.join(SECRETS_DIR, 's_sheets')
 SERVICE_ACCOUNT_FILE = os.path.join(SECRETS_DIR, 'login.json')
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets'] 
-
-
-# Función auxiliar para enviar mensajes asíncronos (como en filtrar_mensajes)
-async def _send_message_async(chat_id: int, context, message_text: str):
-    """Función asíncrona auxiliar para enviar un mensaje."""
-    try:
-        await context.bot.send_message(chat_id=chat_id, text=message_text)
-        logger.info(f"Mensaje enviado a {chat_id}: '{message_text}'")
-    except Exception as e:
-        logger.error(f"Error al enviar mensaje a {chat_id}: {e}")
  
 def _get_sheet_config(nave) -> tuple[str, str, str]:
     try:
@@ -134,9 +126,9 @@ def _escribir_Datos_sheets(spreadsheet_id: str, nombre_hoja: str, posicion_fecha
         logger.info(f"Datos escritos exitosamente: {result}")
         logger.info(f"Se escribió {cantidad} en la celda {cell_range}")
 
-        message = f"Sa escrit de forma satisfactòria, antic valor era {current_value} i el nou valor és {new_total}"
+        message = f"Sa escrit de forma satisfactòria, el antic valor era {current_value} i el nou valor és {new_total}"
         asyncio.run_coroutine_threadsafe(
-            _send_message_async(chat_id, context, message),
+            send_message_sync_wrapper(chat_id, context, message),
             main_loop
         )
         
@@ -150,16 +142,6 @@ def _escribir_Datos_sheets(spreadsheet_id: str, nombre_hoja: str, posicion_fecha
     except Exception as e:
         logger.error(f"Error inesperado al intentar escribir los datos en Google Sheets: {e}")
         raise # Relanzar la excepción
-
-def _llista_naus_valides(nave: str) -> bool:
-    letras_validas = [chr(i) for i in range(ord('A'), ord('B') + 1)] # De A a B
-
-    if nave in letras_validas:
-        logger.info(f"Nave '{nave}' es válida.")
-        return True
-    else:
-        logger.warning(f"Nave '{nave}' no está en la lista de naus vàlides: {letras_validas}.")
-        return False
 
 def g_sheets(telegram_message_update: dict, context, main_loop: asyncio.AbstractEventLoop) -> None:
 
@@ -205,16 +187,16 @@ def g_sheets(telegram_message_update: dict, context, main_loop: asyncio.Abstract
                 error_msg = "Error: No se pudo extraer la letra de la nave del mensaje."
                 logger.error(error_msg)
                 asyncio.run_coroutine_threadsafe(
-                    _send_message_async(chat_id, context, error_msg),
+                    send_message_sync_wrapper(chat_id, context, error_msg),
                     main_loop
                 )
                 return
 
-            if not _llista_naus_valides(nave):
+            if not llista_naus_valides(nave):
                 error_msg = f"La nau {nave}, no està dins del rang de naus vàlides."
                 logger.warning(error_msg)
                 asyncio.run_coroutine_threadsafe(
-                    _send_message_async(chat_id, context, error_msg),
+                    send_message_sync_wrapper(chat_id, context, error_msg),
                     main_loop
                 )
                 return
@@ -223,7 +205,7 @@ def g_sheets(telegram_message_update: dict, context, main_loop: asyncio.Abstract
                 error_msg = "No s'ha pogut extreure la quantitat del missatge. Assegura't que el format sigui correcte."
                 logger.error(error_msg)
                 asyncio.run_coroutine_threadsafe(
-                    _send_message_async(chat_id, context, error_msg),
+                    send_message_sync_wrapper(chat_id, context, error_msg),
                     main_loop
                 )
                 return
@@ -250,7 +232,7 @@ def g_sheets(telegram_message_update: dict, context, main_loop: asyncio.Abstract
                 response_text = f"No s'han trobat les dades en el rang '{sheet_name}!'{data_range}' del full de càlcul."
                 logger.error(response_text)
                 asyncio.run_coroutine_threadsafe(
-                    _send_message_async(chat_id, context, response_text),
+                    send_message_sync_wrapper(chat_id, context, response_text),
                     main_loop
                 )
                 return
@@ -263,7 +245,7 @@ def g_sheets(telegram_message_update: dict, context, main_loop: asyncio.Abstract
                 if posicion_fecha is None:
                     logger.error("La fecha actual no se encontró en los datos de la hoja de cálculo.")
                     asyncio.run_coroutine_threadsafe(
-                        _send_message_async(chat_id, context, f"La data actual '{fecha_actual}' no sa trobat dins de la fulla de càlcul"),
+                        send_message_sync_wrapper(chat_id, context, f"La data actual '{fecha_actual}' no sa trobat dins de la fulla de càlcul"),
                         main_loop
                     )
                     return
@@ -275,7 +257,7 @@ def g_sheets(telegram_message_update: dict, context, main_loop: asyncio.Abstract
                 logger.error(f"Error al llamar a _num_data: {e}")
                 posicion_fecha = None # Asegurar que sea None si hay un error inesperado
                 asyncio.run_coroutine_threadsafe(
-                    _send_message_async(chat_id, context, f"Hi ha hagut un error al processar la data actual: {e}"),
+                    send_message_sync_wrapper(chat_id, context, f"Hi ha hagut un error al processar la data actual: {e}"),
                     main_loop
                 )
                 return    
@@ -285,7 +267,7 @@ def g_sheets(telegram_message_update: dict, context, main_loop: asyncio.Abstract
             error_message = f"Error de la API de Google Sheets: {err}"
             logger.error(error_message)
             asyncio.run_coroutine_threadsafe(
-                _send_message_async(chat_id, context, f"Hi ha hagut un error al accedir al full de dades"),
+                send_message_sync_wrapper(chat_id, context, f"Hi ha hagut un error al accedir al full de dades"),
                 main_loop
             )
             return
@@ -293,7 +275,7 @@ def g_sheets(telegram_message_update: dict, context, main_loop: asyncio.Abstract
             error_message = f"Error: Archivo de credenciales o SPREADSHEET_ID no encontrado: {err}"
             logger.critical(error_message)
             asyncio.run_coroutine_threadsafe(
-                _send_message_async(chat_id, context, "Hi ha un error amb l'autentificació amb el full de dades."),
+                send_message_sync_wrapper(chat_id, context, "Hi ha un error amb l'autentificació amb el full de dades."),
                 main_loop
             )
             return
@@ -301,7 +283,7 @@ def g_sheets(telegram_message_update: dict, context, main_loop: asyncio.Abstract
             error_message = f"Error inesperado en g_sheets: {e}"
             logger.error(error_message)
             asyncio.run_coroutine_threadsafe(
-                _send_message_async(chat_id, context, f"Hi ha hagut un error inesperat amb la comunicació del full de dades."),
+                send_message_sync_wrapper(chat_id, context, f"Hi ha hagut un error inesperat amb la comunicació del full de dades."),
                 main_loop
             )
             return
@@ -309,7 +291,7 @@ def g_sheets(telegram_message_update: dict, context, main_loop: asyncio.Abstract
         error = f"Sa entregat un valor de baixes igual o innferior a 0"
         logger.info(error)
         asyncio.run_coroutine_threadsafe(
-            _send_message_async(chat_id, context, f"El nombre de baixes ha de ser igual o superior a 1."),
+            send_message_sync_wrapper(chat_id, context, f"El nombre de baixes ha de ser igual o superior a 1."),
             main_loop
         )
     pass

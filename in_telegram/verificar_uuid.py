@@ -11,7 +11,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Ruta al archivo de IDs
-USER_IDS_FILE = 'in_telegram/telegram-clientes.json'
+USER_IDS_FILE = 'in_telegram/utils/telegram-clientes.json'
 
 def _load_user_ids(file_path):
     """
