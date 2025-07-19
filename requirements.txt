@@ -5,8 +5,8 @@ Beaker==1.12.1
 beautifulsoup4==4.13.4
 blivet==3.12.1
 blivet-gui==2.6.0
-boto3==1.38.46
-botocore==1.38.46
+boto3==1.39.4
+botocore==1.39.4
 Brlapi==0.8.6
 cachetools==5.5.2
 certifi==2025.7.14
@@ -94,13 +94,13 @@ python-whois==0.9.5
 pyudev==0.24.3
 pyxdg==0.27
 PyYAML==6.0.2
-pyynl @ file:///builddir/build/BUILD/kernel-6.15.4-build/kernel-6.15.4/linux-6.15.4-200.fc42.x86_64/tools/net/ynl
+pyynl @ file:///builddir/build/BUILD/kernel-6.15.6-build/kernel-6.15.6/linux-6.15.6-200.fc42.x86_64/tools/net/ynl
 qrcode==8.0
 quearcode==0.4.1
 RapidFuzz==3.11.0
 referencing==0.36.2
 regex==2024.11.6
-requests==2.32.3
+requests==2.32.4
 requests-file==2.0.0
 requests-ftp==0.3.1
 requests-oauthlib==2.0.0
