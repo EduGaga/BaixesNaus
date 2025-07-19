@@ -8,6 +8,7 @@ import os
 from googleapiclient.errors import HttpError
 from in_telegram.validadores.llista_naus_valides import llista_naus_valides 
 from in_telegram.g_sheets.g_autentificacion import get_sheets_service_ro, get_sheets_service_rw, get_spreadsheet_id
+from in_telegram.g_sheets.buscar_data_actual import buscar_data_actual_g_sheet
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -15,27 +16,6 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
-
- 
-def _num_data(api_dates: list[list[str]], current_date_str: str) -> int | None:
-    # Aplanar la lista de listas a una sola lista de strings para facilitar la búsqueda
-    flattened_dates = [date_item for sublist in api_dates for date_item in sublist]
-    
-    #logger.info(f"Buscando '{current_date_str}' en las fechas de la API: {flattened_dates}")
-
-    try:
-        # Buscar la fecha actual en la lista aplanada
-        # index() devuelve la primera posición de la coincidencia
-        position_zero_based = flattened_dates.index(current_date_str)
-        logger.info(f"Fecha '{current_date_str}' encontrada en la posición: {position_zero_based + 1}")
-        return position_zero_based + 1
-    except ValueError:
-        # La fecha no se encontró en la lista
-        logger.warning(f"La fecha '{current_date_str}' no se encontró en los datos de la API.")
-        return None
-    except Exception as e:
-        logger.error(f"Error inesperado en _num_data al buscar la fecha: {e}")
-        return None
 
 async def _escribir_Datos_sheets(nave: str, posicion_fecha: int, cantidad: int, sac_bool: bool, context,chat_id) -> None:  
     try:
@@ -48,7 +28,7 @@ async def _escribir_Datos_sheets(nave: str, posicion_fecha: int, cantidad: int, 
             await context.bot.send_message(chat_id=chat_id, text="Error interno: No se pudo conectar con Google Sheets para escribir. Contacta con el administrador.")
             return
     
-        target_row = posicion_fecha + 6 
+        target_row = posicion_fecha
 
         # Determinar la columna de destino
         if sac_bool:
@@ -122,15 +102,6 @@ async def g_sheets(telegram_message_update: dict, context, main_loop: asyncio.Ab
     chat_id = telegram_message_update.get('message', {}).get('chat', {}).get('id')
     message_content = telegram_message_update.get('message', {}).get('text')
 
-    # Obtener el servicio de SOLO LECTURA y el ID de la hoja de cálculo para la lectura inicial
-    service_ro = get_sheets_service_ro()
-    spreadsheet_id = get_spreadsheet_id()
-
-    if not service_ro or not spreadsheet_id:
-        logger.error("Servicio de Google Sheets (RO) o Spreadsheet ID no disponibles. No se puede procesar g_sheets.")
-        await context.bot.send_message(chat_id=chat_id, text="Error interno: No se pudo conectar con Google Sheets para leer. Contacta con el administrador.")
-        return
-
     #Extraer la fecha actual en formato "dd/mm/yy" 
     # Usamos datetime para obtener la fecha de hoy
     fecha_actual = datetime.date.today().strftime("%d/%m/%y")
@@ -182,31 +153,12 @@ async def g_sheets(telegram_message_update: dict, context, main_loop: asyncio.Ab
 
     try:
         # Definir el rango de fechas para leer (ahora sin _get_sheet_config)
-        sheet_name_full = f"Nau {nave}"
-        data_range = "B7:B101" # Rango de fechas
-        range_to_read = f"'{sheet_name_full}'!{data_range}"
-
-        # --- Llamar a la API de Google Sheets para leer fechas usando el servicio de SOLO LECTURA ---
-        result = service_ro.spreadsheets().values().get( # Usamos service_ro aquí
-            spreadsheetId=spreadsheet_id, range=range_to_read
-        ).execute()
-    
-        values = result.get('values', [])
-
-        if not values:
-            response_text = f"No s'han trobat les dades de dates en el rang '{range_to_read}' del full de càlcul."
-            logger.error(response_text)
-            await context.bot.send_message(chat_id=chat_id, text=response_text)
-            return
-        
-        posicion_fecha = _num_data(values, fecha_actual)
+        posicion_fecha = await buscar_data_actual_g_sheet(nave)
         if posicion_fecha is None:
-            logger.error(f"La fecha actual '{fecha_actual}' no se encontró en los datos de la hoja de cálculo.")
+            logger.error(f"La fecha actual '{fecha_actual}' no se encontró en los datos de la hoja de cálculo para Nau {nave}.")
             await context.bot.send_message(chat_id=chat_id, text=f"La data actual '{fecha_actual}' no s'ha trobat dins de la fulla de càlcul.")
             return
-           
-        # --- Llamada a la función de escritura (ahora async) ---
-        # Aseguramos que _escribir_Datos_sheets también sea async y se use con await
+        
         await _escribir_Datos_sheets(nave, posicion_fecha, cantidad, sac_bool, context, chat_id)
 
     except HttpError as err:
